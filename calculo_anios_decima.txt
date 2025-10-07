@@ -1,0 +1,36 @@
+SELECT 
+        id,
+        nombres,
+        fecha_ingreso,
+        fecha_reingreso,
+        puesto_id,
+        COALESCE(fecha_reingreso, fecha_ingreso) AS fecha_base,
+        (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 AS anios_decimales,
+        EXTRACT(YEAR FROM AGE(DATE '2024-12-31', COALESCE(fecha_reingreso, fecha_ingreso)))::int AS anios_trabajados,
+        CASE
+            WHEN (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 <= 0 THEN 0
+            WHEN (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 > 0 
+              AND (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 <= 1 THEN 12
+            WHEN (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 > 1 
+              AND (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 <= 2 THEN 14
+            WHEN (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 > 2 
+              AND (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 <= 3 THEN 16
+            WHEN (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 > 3
+              AND (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 <= 4 THEN 18
+            WHEN (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 > 4
+              AND (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 <= 5 THEN 20
+            WHEN (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 > 5
+              AND (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 <= 10 THEN 22
+            WHEN (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 > 10
+              AND (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 <= 15 THEN 24
+            WHEN (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 > 15
+              AND (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 <= 20 THEN 26
+            WHEN (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 > 20
+              AND (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 <= 25 THEN 28
+            WHEN (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 > 25
+              AND (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 <= 30 THEN 30
+            WHEN (DATE '2024-12-31' - COALESCE(fecha_reingreso::date, fecha_ingreso::date)) / 365.0 > 30  THEN 32
+            ELSE 32
+        END AS periodoActualDias
+    FROM trabajadores 
+    WHERE id = 5

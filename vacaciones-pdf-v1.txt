@@ -1,0 +1,350 @@
+<?php
+include './php/conexion.php';
+require './fpdf/fpdf.php';
+
+$idVacaciones = $_GET['id'];
+$ln = 8;
+$setX = 38;
+
+$query  = "SELECT 
+    t1.id,
+    t1.trabajador_id,
+    t1.periodo_id,
+    t1.fecha_solicitud,
+    t1.fecha_inicio,
+    t1.fecha_fin,
+    t1.dia_laborar,
+    t1.dias_totales,
+    t2.nombres,
+    t2.area,
+    t2.fecha_ingreso,
+    t2.fecha_reingreso,
+    t3.puesto,
+    t4.periodo,
+    t4.anio_inicio, -- Para cálculo futuro en PHP si lo necesitas
+    t2.pagadora,
+    t5.ruta_imagen,
+    t6.dias_pendientes,
+    u.nombres nombre_comite,
+    COALESCE(t2.fecha_reingreso, t2.fecha_ingreso) AS fecha_base,
+    EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)))::int AS anios_trabajados,
+    (EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)))::int + 1) AS anios_futuros,
+    -- Días de vacaciones para el periodo actual
+    CASE
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)))::int = 0 THEN 0
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)))::int = 1 THEN 12
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)))::int = 2 THEN 14
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)))::int = 3 THEN 16
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)))::int = 4 THEN 18
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)))::int = 5 THEN 20
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)))::int BETWEEN 6 AND 10 THEN 22
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)))::int BETWEEN 11 AND 15 THEN 24
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)))::int BETWEEN 16 AND 20 THEN 26
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)))::int BETWEEN 21 AND 25 THEN 28
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)))::int BETWEEN 26 AND 30 THEN 30
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)))::int >= 31 THEN 32
+        ELSE 0
+    END AS periodoactualdias,
+    -- Días de vacaciones para el periodo futuro (corte al 31-dic del año siguiente a anio_inicio)
+    CASE
+        WHEN AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)) < INTERVAL '3 months' THEN 0
+        WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 0 THEN 12
+        WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 1 THEN 12
+        WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 2 THEN 14
+        WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 3 THEN 16
+        WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 4 THEN 18
+        WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 5 THEN 20
+        WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 6 AND 10 THEN 22
+        WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 11 AND 15 THEN 24
+        WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 16 AND 20 THEN 26
+        WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 21 AND 25 THEN 28
+        WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 26 AND 30 THEN 30
+        WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) >= 31 THEN 32
+        ELSE 0
+    END AS periodofuturodias,
+    -- Días correspondientes y días restantes (como ya tienes)
+    GREATEST(
+        CASE
+            WHEN AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)) < INTERVAL '3 months' THEN 0
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 0 THEN 12
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 1 THEN 12
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 2 THEN 14
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 3 THEN 16
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 4 THEN 18
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 5 THEN 20
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 6 AND 10 THEN 22
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 11 AND 15 THEN 24
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 16 AND 20 THEN 26
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 21 AND 25 THEN 28
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 26 AND 30 THEN 30
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) >= 31 THEN 32
+            ELSE 0
+        END
+        - (
+            SELECT COALESCE(SUM(v2.dias_totales),0)
+            FROM vacaciones v2
+            WHERE v2.trabajador_id = t2.id
+            AND v2.periodo_id = t1.periodo_id
+            AND v2.estatus = 1
+            AND v2.id < t1.id
+        ),
+        0
+    ) AS dias_correspondientes,
+    GREATEST(
+        CASE
+            WHEN AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso)) < INTERVAL '3 months' THEN 0
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 0 THEN 12
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 1 THEN 12
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 2 THEN 14
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 3 THEN 16
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 4 THEN 18
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) = 5 THEN 20
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 6 AND 10 THEN 22
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 11 AND 15 THEN 24
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 16 AND 20 THEN 26
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 21 AND 25 THEN 28
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) BETWEEN 26 AND 30 THEN 30
+            WHEN EXTRACT(YEAR FROM AGE((t4.anio_inicio + 1 || '-12-31')::date, COALESCE(t2.fecha_reingreso, t2.fecha_ingreso))) >= 31 THEN 32
+            ELSE 0
+        END
+        - (
+            SELECT COALESCE(SUM(v2.dias_totales),0)
+            FROM vacaciones v2
+            WHERE v2.trabajador_id = t2.id
+            AND v2.periodo_id = t1.periodo_id
+            AND v2.estatus = 1
+            AND fecha_inicio < '2025-09-19'
+        ),
+        0
+    ) AS dias_restantes
+FROM vacaciones t1
+JOIN trabajadores t2 ON t1.trabajador_id = t2.id
+JOIN (
+    SELECT u.id, u.usuario, t.nombres
+    FROM users u
+    JOIN trabajadores t ON u.trabajador_id = t.id
+) u ON t1.estatus_comite_id = u.id
+LEFT JOIN puestos t3 ON t2.puesto_id = t3.id
+LEFT JOIN registros_patronales t5 ON t5.id = t2.registro_patronal_id
+JOIN vacaciones_admin t6 ON t6.periodo_id = t1.periodo_id
+AND t6.trabajador_id = t1.trabajador_id
+JOIN periodos t4 ON t1.periodo_id = t4.id_p
+WHERE t1.id = :idVacaciones";
+$stmt = $pdo->prepare($query);
+$stmt->execute(['idVacaciones' => $idVacaciones]);
+$row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$vacacionId            = (int)$row['id'];
+$trabajadorId          = (int)$row['trabajador_id'];
+$periodoId             = (int)$row['periodo_id'];
+$fechaSolicitud        = $row['fecha_solicitud'];
+$nombreEmpleado        = $row['nombres'];
+$cargoDesempena        = $row['puesto'];
+$fechaIngreso          = $row['fecha_ingreso'];
+$numeroDiasSolicitados = (int)$row['dias_totales'];
+$fechaInicio           = $row['fecha_inicio'];
+$fechaFin              = $row['fecha_fin'];
+$diaLaborar            = $row['dia_laborar'];
+$periodoVacaciones     = $row['periodo'];
+$pagadora              = $row['pagadora'];
+$area                  = $row['area'];
+$nombreJefeInmediato   = $row['nombre_comite'];
+$img                   = $row['ruta_imagen'];
+$dpva                  = $row['dias_pendientes'];
+$d_correspondientes    = $row['dias_correspondientes'];
+$d_restantes           = $row['dias_restantes'];
+$d_totales             = $row['periodoactualdias'];
+$d_futuros            = $row['periodofuturodias'];
+
+$anioInicioPeriodo = (int)$row['anio_inicio'];
+$fechaCortePeriodo = ($anioInicioPeriodo + 1) . '-12-31';
+$fechaHoy = date('Y-m-d');
+
+if ($fechaCortePeriodo > $fechaHoy) {
+    // Si la fecha de corte del periodo es mayor a hoy, es periodo futuro
+    $diasVacacionesMostrar = $d_futuros;
+    $leyendaPeriodo = 'Vacaciones correspondientes al periodo: ' . $periodoVacaciones;
+} else {
+    $diasVacacionesMostrar = $d_totales;
+    $leyendaPeriodo = 'Vacaciones correspondientes al periodo: ' . $periodoVacaciones;
+}
+
+$sqlPrev = "SELECT COALESCE(SUM(dias_totales),0)
+            FROM vacaciones
+            WHERE trabajador_id = :trabajador
+              AND periodo_id = :periodo
+			  AND fecha_inicio < '2025-09-19'";
+$prevStmt = $pdo->prepare($sqlPrev);
+$prevStmt->execute([
+    'trabajador' => $trabajadorId,
+    'periodo'    => $periodoId
+]);
+$diasDisfrutadosPrevios = (int)$prevStmt->fetchColumn();
+$diasDisfrutados = $diasDisfrutadosPrevios;
+$diasRes = max($diasVacacionesMostrar - $diasDisfrutados - $numeroDiasSolicitados, 0);
+
+$pdf = new FPDF();
+$pdf->AddPage();
+
+$pdf->Image('./img/headerv.png', 0, 0, 215, 20);
+
+$imgPath = '';
+if ($img) {
+    $imgPath = __DIR__ . '/' . ltrim($img, '/');
+}
+$anchoPagina = $pdf->GetPageWidth();
+$anchoImagen = 40;
+$posX = $anchoPagina - $anchoImagen - 10;
+
+if ($imgPath && file_exists($imgPath)) {
+    $pdf->Image($imgPath, $posX, 10, $anchoImagen, 40);
+    $pdf->Ln(20);
+} else {
+    // $pdf->Image('./img/liam.png', $posX, 10, $anchoImagen, 25);
+    $pdf->Ln(5);
+}
+
+$pdf->Ln(15);
+$pdf->SetX(130);
+$pdf->SetFont('Arial', '', 9);
+if ($trabajadorId === 80 || $trabajadorId === 81) {
+    $pdf->Ln(3);
+    $pdf->SetX(147);
+    $pdf->Cell(0, 5, 'rhacerosmedina@gmail.com');
+    $pdf->Ln(3);
+    $pdf->SetX(162);
+    $pdf->Cell(0, 5, 'Tel. 9982606791');
+} else {
+    $pdf->Cell(0, 5, 'Av. Puerto Juarez SM-209 Mza. 01 Lt. 33');
+    $pdf->Ln(3);
+    $pdf->SetX(147);
+    $pdf->Cell(0, 5, '(Entre calle 143 y calle 145)');
+    $pdf->Ln(3);
+    $pdf->SetX(147);
+    $pdf->Cell(0, 5, 'rhacerosmedina@gmail.com');
+    $pdf->Ln(3);
+    $pdf->SetX(162);
+    $pdf->Cell(0, 5, 'Tel. 9982606791');
+}
+
+$pdf->Ln(20);
+$pdf->SetX($setX);
+$pdf->SetFont('Arial', 'B', 10);
+$pdf->Cell(10, 5, 'Asunto: Solicitud de vacaciones');
+
+$pdf->Ln($ln);
+$pdf->SetX($setX);
+$pdf->SetFont('Arial', '', 10);
+$pdf->Cell(0, 5, 'Fecha de solicitud: ' . $fechaSolicitud);
+
+$pdf->Ln($ln);
+$pdf->SetX($setX);
+$pdf->Cell(0, 5, utf8_decode('Nombre del empleado: ' . $nombreEmpleado));
+
+$pdf->Ln($ln);
+$pdf->SetX($setX);
+$pdf->Cell(0, 5, utf8_decode('Cargo que desempeña: ') . $cargoDesempena);
+
+$pdf->Ln($ln);
+$pdf->SetX($setX);
+$pdf->Cell(10, 5, 'Fecha de ingreso a la empresa: ' . $fechaIngreso);
+
+$pdf->Ln($ln);
+$pdf->SetX($setX);
+$pdf->Cell(10, 5, utf8_decode('Número de días que solicita: ') . $numeroDiasSolicitados);
+
+$pdf->Ln($ln);
+$pdf->SetX($setX);
+$pdf->Cell(10, 5, utf8_decode('Para ser gozada del día: ') . $fechaInicio . utf8_decode(' al día ') . $fechaFin);
+
+$pdf->Ln($ln);
+$pdf->SetX($setX);
+$pdf->Cell(10, 5, utf8_decode('Día a presentarse a laborar: ') . $diaLaborar);
+
+$pdf->Ln($ln); $pdf->SetX($setX);
+$pdf->Cell(10, 5, $leyendaPeriodo . utf8_decode(' (' . $diasVacacionesMostrar . ' días)'));
+
+$pdf->Ln($ln); $pdf->SetX($setX);
+
+$pdf->Cell(10, 5, utf8_decode('Días disfrutados anteriormente: ') . $diasDisfrutados);
+$pdf->Ln($ln); 
+$pdf->SetX($setX);
+$pdf->Cell(10, 5, utf8_decode('Días pendientes por tomar: ') . $diasRes);
+$pdf->Ln($ln);
+
+
+switch ((int)$area) {
+    case 1:
+        $nombreJefeInmediato = '';
+        break;
+    case 2:
+        $nombreJefeInmediato = 'LIC. MENDEZ TUN SAMUEL';
+        break;
+    case 3:
+        $nombreJefeInmediato = 'LIC. JACINTO GOMEZ ARTURO';
+        break;
+    case 4:
+        $nombreJefeInmediato = 'LIC. PERERA CANCHE ALFREDO JESUS';
+        break;
+    case 5:
+        $nombreJefeInmediato = 'ING. NAH CATZIN JUAN JOSE';
+        break;
+    default:
+        $nombreJefeInmediato = 'JEFE INMEDIATO';
+}
+
+/* ===== Bloques de firma perfectamente alineados ===== */
+/**
+ * Dibuja una línea de firma y centra el texto exactamente con el mismo ancho.
+ * @param FPDF  $pdf
+ * @param float $y        Coordenada Y donde va la línea
+ * @param float $xStart   Inicio de la línea
+ * @param float $xEnd     Fin de la línea
+ * @param string $name    Texto (nombre) centrado justo debajo
+ * @param string|null $label Segundo renglón (opcional)
+ */
+/* ===== Bloques de firma perfectamente alineados ===== */
+function signatureBlock($pdf, $y, $xStart, $xEnd, $name, $label = null)
+{
+    $width = $xEnd - $xStart;
+    $pdf->SetLineWidth(0.3);
+    $pdf->Line($xStart, $y, $xEnd, $y);
+    $pdf->SetFont('Arial', '', 10);
+    $pdf->SetY($y + 4);             // más despegado de la línea
+    $pdf->SetX($xStart);
+    $pdf->Cell($width, 5, utf8_decode($name), 0, 1, 'C');
+    if ($label !== null) {
+        $pdf->SetX($xStart);
+        $pdf->Cell($width, 5, utf8_decode($label), 0, 1, 'C');
+    }
+}
+
+/* — Coordenadas y separación — */
+$x1 = 60;
+$x2 = 150;
+$gapTop = 22;  // espacio extra para despegar del texto de arriba
+$yStart = max($pdf->GetY() + $gapTop, 155);  // asegura buen margen
+
+// 1) Empleado
+signatureBlock($pdf, $yStart, $x1, $x2, $nombreEmpleado);
+
+// 2) Jefe inmediato
+signatureBlock($pdf, $yStart + 25, $x1, $x2, $nombreJefeInmediato);
+
+// 3) Persona que va a sustituir
+signatureBlock($pdf, $yStart + 50, $x1, $x2, 'NOMBRE Y FIRMA DE LA PERSONA QUE VA A SUSTITUIR');
+
+// 4) Encargado de RH (con su propia línea)
+signatureBlock($pdf, $yStart + 75, $x1, $x2, 'ENCARGADO/A DE RH');
+
+// Nota de expediente (sin línea, debajo del bloque de RH)
+$pdf->SetY($yStart + 83);
+$pdf->SetX($x1);
+$pdf->SetFont('Arial', '', 10);
+$pdf->Cell($x2 - $x1, 5, utf8_decode('C.C.P Expediente RH'), 0, 1, 'C');
+
+/* ===== Pie ===== */
+$pdf->Image('./img/footerv.png', 0, 276, 210, 25);
+
+$nombreDocumento = "Vacaciones-" . preg_replace('/\s+/', '_', $nombreEmpleado) . "_" . date('Ymd') . ".pdf";
+$pdf->Output('I', $nombreDocumento);

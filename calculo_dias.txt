@@ -1,0 +1,25 @@
+SELECT 
+    id,
+    nombres,
+    fecha_ingreso,
+    fecha_reingreso,
+    COALESCE(fecha_reingreso, fecha_ingreso) AS fecha_base,
+    EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(fecha_reingreso, fecha_ingreso)))::int AS anios_trabajados,
+    (EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(fecha_reingreso, fecha_ingreso)))::int + 1) AS anios_futuros,
+    CASE
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(fecha_reingreso, fecha_ingreso)))::int = 0 THEN 0
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(fecha_reingreso, fecha_ingreso)))::int = 1 THEN 12
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(fecha_reingreso, fecha_ingreso)))::int = 2 THEN 14
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(fecha_reingreso, fecha_ingreso)))::int = 3 THEN 16
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(fecha_reingreso, fecha_ingreso)))::int = 4 THEN 18
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(fecha_reingreso, fecha_ingreso)))::int = 5 THEN 20
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(fecha_reingreso, fecha_ingreso)))::int BETWEEN 6 AND 10 THEN 22
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(fecha_reingreso, fecha_ingreso)))::int BETWEEN 11 AND 15 THEN 24
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(fecha_reingreso, fecha_ingreso)))::int BETWEEN 16 AND 20 THEN 26
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(fecha_reingreso, fecha_ingreso)))::int BETWEEN 21 AND 25 THEN 28
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(fecha_reingreso, fecha_ingreso)))::int BETWEEN 26 AND 30 THEN 30
+        WHEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, COALESCE(fecha_reingreso, fecha_ingreso)))::int BETWEEN 31 AND 35 THEN 32
+        ELSE 32
+    END AS periodoActualDias
+FROM trabajadores
+WHERE id = 335;
