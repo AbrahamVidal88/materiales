@@ -272,27 +272,6 @@ $pdf->SetX($setX);
 $pdf->Cell(10, 5, utf8_decode('Días pendientes por tomar: ') . $diasRes);
 $pdf->Ln($ln);
 
-
-switch ((int)$area) {
-    case 1:
-        $nombreJefeInmediato = '';
-        break;
-    case 2:
-        $nombreJefeInmediato = 'LIC. MENDEZ TUN SAMUEL';
-        break;
-    case 3:
-        $nombreJefeInmediato = 'LIC. JACINTO GOMEZ ARTURO';
-        break;
-    case 4:
-        $nombreJefeInmediato = 'LIC. PERERA CANCHE ALFREDO JESUS';
-        break;
-    case 5:
-        $nombreJefeInmediato = 'ING. NAH CATZIN JUAN JOSE';
-        break;
-    default:
-        $nombreJefeInmediato = 'JEFE INMEDIATO';
-}
-
 /* ===== Bloques de firma perfectamente alineados ===== */
 /**
  * Dibuja una línea de firma y centra el texto exactamente con el mismo ancho.
@@ -348,3 +327,4 @@ $pdf->Image('./img/footerv.png', 0, 276, 210, 25);
 
 $nombreDocumento = "Vacaciones-" . preg_replace('/\s+/', '_', $nombreEmpleado) . "_" . date('Ymd') . ".pdf";
 $pdf->Output('I', $nombreDocumento);
+
